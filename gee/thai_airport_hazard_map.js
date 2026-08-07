@@ -163,11 +163,15 @@ Map.centerObject(ee.FeatureCollection(ZONES.map(function (z) { return ee.Feature
 
 var zoneLayers = {}; // icao -> {phz, shz, thz, lhz} Map layers, for per-airport toggling
 
+// Distinct, high-contrast hues per zone so they read clearly against satellite
+// imagery and against each other (avoid brown/orange/yellow blending together).
+var ZONE_COLORS = { lhz: '1f78b4', thz: '6a3d9a', shz: 'ff7f00', phz: 'e31a1c' };
+
 ZONES.forEach(function (z) {
-  var lhzLayer = Map.addLayer(z.lhz, { color: 'ffff0055' }, z.icao + ' — LHZ (13km)', true, 0.35);
-  var thzLayer = Map.addLayer(z.thz, { color: '8B4513' }, z.icao + ' — THZ', true, 0.45);
-  var shzLayer = Map.addLayer(z.shz, { color: 'ff8c00' }, z.icao + ' — SHZ', true, 0.55);
-  var phzLayer = Map.addLayer(z.phz, { color: 'ff0000' }, z.icao + ' — PHZ', true, 0.7);
+  var lhzLayer = Map.addLayer(z.lhz, { color: ZONE_COLORS.lhz }, z.icao + ' — LHZ (13km)', true, 0.12);
+  var thzLayer = Map.addLayer(z.thz, { color: ZONE_COLORS.thz }, z.icao + ' — THZ', true, 0.5);
+  var shzLayer = Map.addLayer(z.shz, { color: ZONE_COLORS.shz }, z.icao + ' — SHZ', true, 0.6);
+  var phzLayer = Map.addLayer(z.phz, { color: ZONE_COLORS.phz }, z.icao + ' — PHZ', true, 0.8);
   Map.addLayer(z.center, { color: 'ffffff' }, z.icao + ' — ARP', true);
 });
 

@@ -25,6 +25,23 @@ VTBS (Suvarnabhumi) and VTBD (Don Mueang) only. `AIRPORTS` in the script is
 structured so the remaining ~38 Thai aerodromes can be added the same way —
 ARP coordinates + runway bearing from the CAAT eAIP (AD 2.2 / AD 2.12 pages).
 
+## Offline viewer (`web/`)
+
+`web/index.html` — a standalone Leaflet page, no Google/Earth Engine account
+needed. Open the file directly in a browser (or serve the folder). Left
+sidebar: searchable list of all 43 Thai airports (from OurAirports.org public
+data) and layer checkboxes for PHZ/SHZ/THZ/LHZ + the bird-strike heatmap.
+Zone geometry is computed client-side in `app.js` (same math as the EE
+script). `data.js` inlines the airport list and an aggregated incident
+density grid (~300m cells, counts only — no per-event species/damage/date)
+so the page works from a plain `file://` path with no server and no fetch()
+calls. `web/data/*.json` are the source files `data.js` was generated from.
+
+Runway bearings for most airports come from OurAirports' `runways.csv`
+(public domain); a few (flagged with ⚠️ in the sidebar) don't have that data
+yet and use a 10° placeholder — verify against the eAIP AD 2.12 page before
+relying on those for anything real.
+
 ## Not yet done
 
 - Upload `gee/incident_data.csv` (3,804 rows) as an Earth Engine table asset
