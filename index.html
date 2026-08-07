@@ -38,22 +38,25 @@
     <input id="airport-search" type="text" placeholder="ค้นหา ICAO หรือชื่อสนามบิน...">
     <div id="airport-list"></div>
 
+    <div class="section-title">รูปแบบโซน (Zone Model)</div>
+    <label class="toggle-row"><input type="radio" name="zone-model" value="bowtie" checked>
+      โบว์ตามแนวรันเวย์ (ICAO WHMC / India)</label>
+    <label class="toggle-row"><input type="radio" name="zone-model" value="rings">
+      วงแหวนจาก ARP (Australia NASF Guideline C)</label>
+
     <div class="section-title">ชั้นข้อมูล (Layer Controls)</div>
     <label class="toggle-row"><input type="checkbox" id="toggle-phz" checked>
-      <span class="swatch" style="background:#e31a1c"></span> PHZ — เขตอันตรายหลัก</label>
+      <span class="swatch" style="background:#e31a1c"></span> <span id="label-phz">PHZ — เขตอันตรายหลัก</span></label>
     <label class="toggle-row"><input type="checkbox" id="toggle-shz" checked>
-      <span class="swatch" style="background:#ff7f00"></span> SHZ — เขตอันตรายรอง</label>
+      <span class="swatch" style="background:#ff7f00"></span> <span id="label-shz">SHZ — เขตอันตรายรอง</span></label>
     <label class="toggle-row"><input type="checkbox" id="toggle-thz" checked>
-      <span class="swatch" style="background:#6a3d9a"></span> THZ — เขตอันตรายลำดับสาม</label>
+      <span class="swatch" style="background:#6a3d9a"></span> <span id="label-thz">THZ — เขตอันตรายลำดับสาม</span></label>
     <label class="toggle-row"><input type="checkbox" id="toggle-lhz" checked>
-      <span class="swatch" style="background:#1f78b4;opacity:.3;border:1px solid #1f78b4"></span> LHZ — วง 13 กม.</label>
+      <span class="swatch" style="background:#1f78b4;opacity:.3;border:1px solid #1f78b4"></span> <span id="label-lhz">LHZ — วง 13 กม.</span></label>
     <label class="toggle-row"><input type="checkbox" id="toggle-heat" checked>
       <span class="swatch" style="background:linear-gradient(90deg,#ffffb2,#bd0026)"></span> จุดเสี่ยงนกชน (Heatmap รวม)</label>
 
-    <div class="note">
-      โซนความเสี่ยง (PHZ/SHZ/THZ/LHZ) คำนวณจากพิกัดสนามบิน + แนวรันเวย์ ตามแนวคิดสไลด์ ICAO WHMC หน้า 12
-      (ตัวอย่างอินเดีย) — ใช้ได้ทั้ง 43 สนามบิน แนวรันเวย์บางแห่งยังไม่ยืนยันจาก eAIP (ดูเครื่องหมาย ⚠️)
-    </div>
+    <div class="note" id="zone-model-note"></div>
     <div class="disclaimer">
       ⚠️ ชั้น Heatmap คือความหนาแน่นของเหตุการณ์นกชนจริงที่สุวรรณภูมิ/ดอนเมือง (2021-2025, รวม 3,804 เหตุการณ์)
       แต่ตำแหน่งเป็นการประมาณจาก Altitude/FlightPhase ไม่ใช่พิกัด GPS จริง (ข้อมูลต้นทางไม่มีพิกัด) และแสดงเฉพาะ

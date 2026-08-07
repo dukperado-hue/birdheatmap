@@ -49,6 +49,14 @@ function bowTieRing(lat, lon, bearing, d0, d1, w0, w1) {
   ];
 }
 
+// Alternative zone model: Australia's NASF Guideline C ("Managing the Risk of
+// Wildlife Strikes in the Vicinity of Airports", Nov 2023) -- concentric rings
+// centered on the ARP (not runway-oriented), the model CASR Part 139 MOS
+// requires airport operators to monitor and publicly declare:
+//   Area A 0-3km, Area B 3-8km, Area C 8-13km. The 13km figure traces back to
+// the same ICAO Airport Services Manual distance as the bow-tie's LHZ circle.
+var NASF_RINGS = { a: 3000, b: 8000, c: 13000 };
+
 // ---------------------------------------------------------------------------
 // Zone visual style — distinct hues so PHZ/SHZ/THZ don't blend into each other
 // or into satellite imagery. LHZ is an outline only (fill would bury everything).
@@ -77,6 +85,7 @@ var arpMarkerGroup = L.layerGroup().addTo(map);
 var heatLayer = null;
 
 var layerVisibility = { phz: true, shz: true, thz: true, lhz: true, heat: true };
+var zoneModel = 'bowtie'; // 'bowtie' (India, runway-oriented) | 'rings' (Australia NASF, ARP-centered)
 
 function drawAirportZones(ap) {
   zoneLayerGroup.clearLayers();
@@ -84,34 +93,68 @@ function drawAirportZones(ap) {
 
   var lat = ap.lat, lon = ap.lon, brg = ap.rwyBearingDeg;
 
-  if (layerVisibility.lhz) {
-    L.circle([lat, lon], { radius: 13000, ...ZONE_STYLE.lhz }).addTo(zoneLayerGroup);
-  }
-  if (layerVisibility.thz) {
-    bowTieRing(lat, lon, brg, 3.6, 13, 2.5, 5).forEach(function (poly) {
-      L.polygon(poly, ZONE_STYLE.thz).addTo(zoneLayerGroup);
-    });
-  }
-  if (layerVisibility.shz) {
-    bowTieRing(lat, lon, brg, 1.5, 3.6, 1.2, 2.5).forEach(function (poly) {
-      L.polygon(poly, ZONE_STYLE.shz).addTo(zoneLayerGroup);
-    });
-  }
-  if (layerVisibility.phz) {
-    bowTieRing(lat, lon, brg, 0, 1.5, 0.8, 1.2).forEach(function (poly) {
-      L.polygon(poly, ZONE_STYLE.phz).addTo(zoneLayerGroup);
-    });
+  if (zoneModel === 'rings') {
+    // Draw largest-first so each smaller, differently-colored circle on top
+    // reads as a distinct band (donut trick via z-order, no clipping needed).
+    if (layerVisibility.thz) L.circle([lat, lon], { radius: NASF_RINGS.c, ...ZONE_STYLE.thz }).addTo(zoneLayerGroup);
+    if (layerVisibility.shz) L.circle([lat, lon], { radius: NASF_RINGS.b, ...ZONE_STYLE.shz }).addTo(zoneLayerGroup);
+    if (layerVisibility.phz) L.circle([lat, lon], { radius: NASF_RINGS.a, ...ZONE_STYLE.phz }).addTo(zoneLayerGroup);
+    if (layerVisibility.lhz) L.circle([lat, lon], { radius: NASF_RINGS.c, ...ZONE_STYLE.lhz }).addTo(zoneLayerGroup);
+  } else {
+    if (layerVisibility.lhz) {
+      L.circle([lat, lon], { radius: 13000, ...ZONE_STYLE.lhz }).addTo(zoneLayerGroup);
+    }
+    if (layerVisibility.thz) {
+      bowTieRing(lat, lon, brg, 3.6, 13, 2.5, 5).forEach(function (poly) {
+        L.polygon(poly, ZONE_STYLE.thz).addTo(zoneLayerGroup);
+      });
+    }
+    if (layerVisibility.shz) {
+      bowTieRing(lat, lon, brg, 1.5, 3.6, 1.2, 2.5).forEach(function (poly) {
+        L.polygon(poly, ZONE_STYLE.shz).addTo(zoneLayerGroup);
+      });
+    }
+    if (layerVisibility.phz) {
+      bowTieRing(lat, lon, brg, 0, 1.5, 0.8, 1.2).forEach(function (poly) {
+        L.polygon(poly, ZONE_STYLE.phz).addTo(zoneLayerGroup);
+      });
+    }
   }
 
   L.circleMarker([lat, lon], { radius: 4, color: '#ffffff', weight: 2, fillColor: '#000000', fillOpacity: 1 })
     .bindTooltip(ap.icao + ' — ' + ap.nameTh, { permanent: false })
     .addTo(arpMarkerGroup);
 
-  if (!ap.bearingVerified) {
+  if (!ap.bearingVerified && zoneModel === 'bowtie') {
     L.circleMarker([lat, lon], { radius: 14, color: '#ffcc00', weight: 2, fill: false })
       .bindTooltip('⚠️ แนวรันเวย์ของสนามบินนี้ยังไม่ยืนยันจาก eAIP (ใช้ค่า placeholder)', { permanent: false })
       .addTo(arpMarkerGroup);
   }
+}
+
+var ZONE_LABELS = {
+  bowtie: {
+    phz: 'PHZ — เขตอันตรายหลัก', shz: 'SHZ — เขตอันตรายรอง',
+    thz: 'THZ — เขตอันตรายลำดับสาม', lhz: 'LHZ — วง 13 กม.',
+    note: 'โซนความเสี่ยง (PHZ/SHZ/THZ/LHZ) คำนวณจากพิกัดสนามบิน + แนวรันเวย์ ตามแนวคิดสไลด์ ICAO WHMC หน้า 12 ' +
+      '(ตัวอย่างอินเดีย) — ใช้ได้ทั้ง 43 สนามบิน แนวรันเวย์บางแห่งยังไม่ยืนยันจาก eAIP (ดูเครื่องหมาย ⚠️)'
+  },
+  rings: {
+    phz: 'Area A — 0-3 กม. (ห้ามพัฒนาแหล่งดึงดูดนก)', shz: 'Area B — 3-8 กม. (ต้องบรรเทาผลกระทบก่อนอนุมัติ)',
+    thz: 'Area C — 8-13 กม. (เฝ้าระวัง)', lhz: 'ขอบเขตประกาศสาธารณะ 13 กม.',
+    note: 'โมเดลวงแหวนศูนย์กลางจาก ARP ตาม Australia NASF Guideline C ("Managing the Risk of Wildlife Strikes ' +
+      'in the Vicinity of Airports", Nov 2023) อ้างอิง ICAO Airport Services Manual + CASR Part 139 MOS — ' +
+      'Area A/B ปรับขอบเขตได้ถ้ามีผู้เชี่ยวชาญ wildlife รับรอง (Area C ปรับไม่ได้ ผูกกับกฎหมาย) ' +
+      'ผู้ดำเนินการสนามบินต้องประกาศ 3 โซนนี้เป็นสาธารณะ — โมเดลนี้เสนอเป็นแม่แบบสำหรับร่าง พ.ร.ก. เขตปลอดภัยการเดินอากาศ'
+  }
+};
+
+function applyZoneLabels() {
+  var L2 = ZONE_LABELS[zoneModel];
+  ['phz', 'shz', 'thz', 'lhz'].forEach(function (key) {
+    document.getElementById('label-' + key).textContent = L2[key];
+  });
+  document.getElementById('zone-model-note').textContent = L2.note;
 }
 
 function updateHeatmap() {
@@ -164,6 +207,17 @@ function wireLayerToggles() {
   });
 }
 
+function wireZoneModelSwitch() {
+  document.querySelectorAll('input[name="zone-model"]').forEach(function (radio) {
+    radio.addEventListener('change', function (e) {
+      if (!e.target.checked) return;
+      zoneModel = e.target.value;
+      applyZoneLabels();
+      if (currentAirport) drawAirportZones(currentAirport);
+    });
+  });
+}
+
 function wireSearch() {
   document.getElementById('airport-search').addEventListener('input', function (e) {
     var q = e.target.value.trim().toLowerCase();
@@ -176,6 +230,8 @@ function wireSearch() {
 
 buildAirportList();
 wireLayerToggles();
+wireZoneModelSwitch();
 wireSearch();
+applyZoneLabels();
 updateHeatmap();
 selectAirport(AIRPORTS.find(function (a) { return a.icao === 'VTBS'; }) || AIRPORTS[0]);
