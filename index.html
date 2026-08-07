@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>แผนที่ความเสี่ยงนกชนเครื่องบิน — สนามบินไทย</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+  html, body { margin: 0; height: 100%; font-family: 'Tahoma', 'Segoe UI', sans-serif; }
+  #app { display: flex; height: 100%; }
+  #sidebar { width: 340px; flex-shrink: 0; background: #14181f; color: #e8ebf0; overflow-y: auto; padding: 14px; box-sizing: border-box; }
+  #sidebar h1 { font-size: 16px; margin: 0 0 2px 0; }
+  #sidebar .subtitle { font-size: 11px; color: #8a93a3; margin-bottom: 10px; }
+  #map { flex: 1; }
+  .section-title { font-size: 12px; font-weight: bold; color: #cfd6e0; margin: 14px 0 6px; border-bottom: 1px solid #333d4d; padding-bottom: 4px; }
+  #airport-search { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #333d4d; background: #1c2230; color: #e8ebf0; border-radius: 4px; margin-bottom: 6px; }
+  #airport-list { max-height: 220px; overflow-y: auto; border: 1px solid #262c39; border-radius: 4px; }
+  .airport-item { display: flex; justify-content: space-between; gap: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #1e232e; }
+  .airport-item:hover { background: #1c2230; }
+  .airport-item.active { background: #2a3a5c; color: #fff; }
+  .airport-item .icao { font-weight: bold; color: #8fb4ff; width: 46px; flex-shrink: 0; }
+  .airport-item .name { flex: 1; }
+  .unverified { font-size: 10px; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; display: inline-block; }
+  #current-airport-label { font-size: 13px; font-weight: bold; margin-top: 4px; color: #ffd166; }
+  .disclaimer { font-size: 10.5px; color: #ff8a8a; line-height: 1.5; margin-top: 10px; }
+  .note { font-size: 10.5px; color: #8a93a3; line-height: 1.5; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <h1>แผนที่ความเสี่ยงนกชนเครื่องบิน</h1>
+    <div class="subtitle">Thailand Airport Wildlife-Hazard Map — offline prototype</div>
+    <div id="current-airport-label">—</div>
+
+    <div class="section-title">เลือกสนามบิน (43 แห่ง)</div>
+    <input id="airport-search" type="text" placeholder="ค้นหา ICAO หรือชื่อสนามบิน...">
+    <div id="airport-list"></div>
+
+    <div class="section-title">ชั้นข้อมูล (Layer Controls)</div>
+    <label class="toggle-row"><input type="checkbox" id="toggle-phz" checked>
+      <span class="swatch" style="background:#e31a1c"></span> PHZ — เขตอันตรายหลัก</label>
+    <label class="toggle-row"><input type="checkbox" id="toggle-shz" checked>
+      <span class="swatch" style="background:#ff7f00"></span> SHZ — เขตอันตรายรอง</label>
+    <label class="toggle-row"><input type="checkbox" id="toggle-thz" checked>
+      <span class="swatch" style="background:#6a3d9a"></span> THZ — เขตอันตรายลำดับสาม</label>
+    <label class="toggle-row"><input type="checkbox" id="toggle-lhz" checked>
+      <span class="swatch" style="background:#1f78b4;opacity:.3;border:1px solid #1f78b4"></span> LHZ — วง 13 กม.</label>
+    <label class="toggle-row"><input type="checkbox" id="toggle-heat" checked>
+      <span class="swatch" style="background:linear-gradient(90deg,#ffffb2,#bd0026)"></span> จุดเสี่ยงนกชน (Heatmap รวม)</label>
+
+    <div class="note">
+      โซนความเสี่ยง (PHZ/SHZ/THZ/LHZ) คำนวณจากพิกัดสนามบิน + แนวรันเวย์ ตามแนวคิดสไลด์ ICAO WHMC หน้า 12
+      (ตัวอย่างอินเดีย) — ใช้ได้ทั้ง 43 สนามบิน แนวรันเวย์บางแห่งยังไม่ยืนยันจาก eAIP (ดูเครื่องหมาย ⚠️)
+    </div>
+    <div class="disclaimer">
+      ⚠️ ชั้น Heatmap คือความหนาแน่นของเหตุการณ์นกชนจริงที่สุวรรณภูมิ/ดอนเมือง (2021-2025, รวม 3,804 เหตุการณ์)
+      แต่ตำแหน่งเป็นการประมาณจาก Altitude/FlightPhase ไม่ใช่พิกัด GPS จริง (ข้อมูลต้นทางไม่มีพิกัด) และแสดงเฉพาะ
+      ความหนาแน่นรวม ไม่มีรายละเอียดสายพันธุ์/ความเสียหายรายจุด
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.heat.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
