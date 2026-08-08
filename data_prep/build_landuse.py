@@ -49,16 +49,24 @@ def main():
     print("Top", TOP_N_AIRPORTS, "airports by incident count:", [(i, s["total"]) for i, s in top_airports])
 
     landuse = []
+    seen = set()
     for el in overpass["elements"]:
         tags = el.get("tags", {})
-        kind = tags.get("landuse") or tags.get("natural") or tags.get("leisure")
-        if kind not in ("landfill", "wetland", "water", "nature_reserve"):
+        kind = tags.get("landuse") or tags.get("natural") or tags.get("leisure") or tags.get("tourism")
+        if kind not in ("landfill", "wetland", "water", "nature_reserve", "zoo", "theme_park"):
             continue
         lat = el.get("lat") or (el.get("center") or {}).get("lat")
         lon = el.get("lon") or (el.get("center") or {}).get("lon")
         if lat is None:
             continue
         name = tags.get("name") or tags.get("name:en")
+        # Overpass returns both the node and the way/relation for some POIs
+        # (e.g. a zoo mapped as an area AND a labeled point) — dedupe by
+        # name+~10m location so they don't show up twice.
+        dedupe_key = (name, round(lat, 3), round(lon, 3))
+        if name and dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
         nearest = min(airports, key=lambda a: haversine(lat, lon, a["lat"], a["lon"]))
         dist = round(haversine(lat, lon, nearest["lat"], nearest["lon"]), 1)
         landuse.append({
@@ -70,9 +78,16 @@ def main():
         json.dump(landuse, f, ensure_ascii=False, separators=(",", ":"))
     print("Wrote", OUT_LANDUSE, f"({len(landuse)} features)")
 
+    # Attractors (always-on POI layer) stick to kinds with a real wildlife-hazard
+    # rationale per NASF Guideline C (landfill/wetland/nature_reserve = food/water
+    # sources; zoo = open animal enclosures/feed). Generic theme/water parks
+    # (Dream World, Chocolate Ville, water slides, etc.) are dropped here — they
+    # show up plenty in the OSM "tourism=theme_park" tag but aren't a wildlife
+    # attractor in the sense this layer is meant to flag. They're still in
+    # landuse.json (the full off-by-default layer) for anyone who wants them.
     attractors = [
         row for row in landuse
-        if row["name"] and row["icaoNear"] in top_icaos
+        if row["name"] and row["icaoNear"] in top_icaos and row["kind"] != "theme_park"
     ]
     with open(OUT_ATTRACTORS, "w", encoding="utf-8") as f:
         json.dump(attractors, f, ensure_ascii=False, separators=(",", ":"))

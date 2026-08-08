@@ -74,12 +74,16 @@ var ZONE_STYLE = {
 var LANDUSE_STYLE = {
   landfill: { color: '#6b4423', fillColor: '#8b5a2b', fillOpacity: 0.55, radius: 350 },
   wetland: { color: '#1b7a6b', fillColor: '#2a9d8f', fillOpacity: 0.4, radius: 280 },
-  nature_reserve: { color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.12, radius: 450 }
+  nature_reserve: { color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.12, radius: 450 },
+  zoo: { color: '#b8860b', fillColor: '#daa520', fillOpacity: 0.5, radius: 250 },
+  theme_park: { color: '#8a5fb0', fillColor: '#a67bc4', fillOpacity: 0.35, radius: 250 }
 };
 var LANDUSE_LABEL = {
   landfill: 'บ่อขยะ/สถานที่ทิ้งขยะ (High risk ตาม NASF Guideline C)',
   wetland: 'พื้นที่ชุ่มน้ำ/แหล่งน้ำ (High risk ตาม NASF Guideline C)',
-  nature_reserve: 'พื้นที่อนุรักษ์ธรรมชาติ/สัตว์ป่า'
+  nature_reserve: 'พื้นที่อนุรักษ์ธรรมชาติ/สัตว์ป่า',
+  zoo: 'สวนสัตว์/ฟาร์มสัตว์ (แหล่งอาหาร/สัตว์เปิดโล่งที่อาจดึงดูดนก)',
+  theme_park: 'สวนสนุก/สถานที่ท่องเที่ยว'
 };
 
 var MONTH_TH = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
