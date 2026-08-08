@@ -3,11 +3,11 @@
     "icao": "BTZ",
     "nameEn": "Betong International Airport",
     "nameTh": "เบตง",
-    "lat": 5.79,
-    "lon": 101.15,
-    "rwyBearingDeg": 10.0,
-    "rwy": null,
-    "bearingVerified": false,
+    "lat": 5.78889,
+    "lon": 101.14722,
+    "rwyBearingDeg": 70.09,
+    "rwy": "07/25",
+    "bearingVerified": true,
     "sizeClass": "medium_airport"
   },
   {

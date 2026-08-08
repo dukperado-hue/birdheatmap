@@ -7,8 +7,8 @@
  * needed, works by opening this folder's index.html directly (file://).
  *
  * The one thing that still needs internet is the OpenStreetMap basemap tiles.
- * Everything else (Leaflet, the zone math, the airport list, the heatmap) is
- * bundled locally in web/vendor and web/data.js.
+ * Everything else (Leaflet, the zone math, the airport list, the heatmap, the
+ * land-use overlay) is bundled locally in web/vendor and web/data.js.
  */
 
 // ---------------------------------------------------------------------------
@@ -69,6 +69,22 @@ var ZONE_STYLE = {
   phz: { color: '#99000d', weight: 1, fill: true, fillColor: '#e31a1c', fillOpacity: 0.75 }
 };
 
+// Land-use risk layer style (NASF Guideline C Attachment 1: putrescible-waste
+// landfill and wetland/waterway are "High risk" land uses near airports).
+var LANDUSE_STYLE = {
+  landfill: { color: '#6b4423', fillColor: '#8b5a2b', fillOpacity: 0.55, radius: 350 },
+  wetland: { color: '#1b7a6b', fillColor: '#2a9d8f', fillOpacity: 0.4, radius: 280 },
+  nature_reserve: { color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.12, radius: 450 }
+};
+var LANDUSE_LABEL = {
+  landfill: 'บ่อขยะ/สถานที่ทิ้งขยะ (High risk ตาม NASF Guideline C)',
+  wetland: 'พื้นที่ชุ่มน้ำ/แหล่งน้ำ (High risk ตาม NASF Guideline C)',
+  nature_reserve: 'พื้นที่อนุรักษ์ธรรมชาติ/สัตว์ป่า'
+};
+
+var MONTH_TH = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
 // ---------------------------------------------------------------------------
 // Map + state
 // ---------------------------------------------------------------------------
@@ -82,10 +98,16 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 var zoneLayerGroup = L.layerGroup().addTo(map);
 var arpMarkerGroup = L.layerGroup().addTo(map);
+var landuseLayerGroup = L.layerGroup();
+var attractorLayerGroup = L.layerGroup();
 var heatLayer = null;
 
 var layerVisibility = { phz: true, shz: true, thz: true, lhz: true, heat: true };
 var zoneModel = 'bowtie'; // 'bowtie' (India, runway-oriented) | 'rings' (Australia NASF, ARP-centered)
+var weightedHeat = false; // false = raw incident count, true = weighted (damage x8)
+var timeMode = 'all';     // 'all' | 'month' | 'seasonal'
+
+var MONTHS = Object.keys(HEATMAP_BY_MONTH).sort(); // "2021-01".."2025-12", 60 entries
 
 function drawAirportZones(ap) {
   zoneLayerGroup.clearLayers();
@@ -157,11 +179,118 @@ function applyZoneLabels() {
   document.getElementById('zone-model-note').textContent = L2.note;
 }
 
+// ---------------------------------------------------------------------------
+// Heatmap — time-sliced (all-time / specific month / seasonal-summed) and
+// optionally weighted by DamageStatus instead of raw incident count.
+// ---------------------------------------------------------------------------
+
+function seasonalGrid(mm) {
+  var acc = {};
+  MONTHS.forEach(function (mk) {
+    if (mk.slice(5, 7) !== mm) return;
+    HEATMAP_BY_MONTH[mk].forEach(function (r) {
+      var key = r[0] + ',' + r[1];
+      if (!acc[key]) acc[key] = [r[0], r[1], 0, 0];
+      acc[key][2] += r[2];
+      acc[key][3] += r[3];
+    });
+  });
+  return Object.keys(acc).map(function (k) { return acc[k]; });
+}
+
+function currentGrid() {
+  var slider = document.getElementById('time-slider');
+  if (timeMode === 'all') return HEATMAP_DENSITY;
+  if (timeMode === 'month') {
+    var mk = MONTHS[parseInt(slider.value, 10)];
+    return HEATMAP_BY_MONTH[mk] || [];
+  }
+  var mm = ('0' + parseInt(slider.value, 10)).slice(-2);
+  return seasonalGrid(mm);
+}
+
+function computeMax(grid, idx) {
+  var m = 0;
+  for (var i = 0; i < grid.length; i++) if (grid[i][idx] > m) m = grid[i][idx];
+  return m;
+}
+
 function updateHeatmap() {
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
   if (!layerVisibility.heat) return;
-  var points = HEATMAP_DENSITY.map(function (r) { return [r[0], r[1], r[2]]; });
-  heatLayer = L.heatLayer(points, { radius: 18, blur: 22, maxZoom: 14, max: 20 }).addTo(map);
+  var grid = currentGrid();
+  var idx = weightedHeat ? 3 : 2;
+  var points = grid.map(function (r) { return [r[0], r[1], r[idx]]; });
+  var maxVal = Math.max(2, computeMax(grid, idx) * 0.22);
+  heatLayer = L.heatLayer(points, { radius: 18, blur: 22, maxZoom: 14, max: maxVal }).addTo(map);
+}
+
+function updateTimeLabel() {
+  var slider = document.getElementById('time-slider');
+  var label = document.getElementById('time-slider-label');
+  if (timeMode === 'all') { label.textContent = 'ทั้งหมด (2021-2025)'; return; }
+  if (timeMode === 'month') {
+    var mk = MONTHS[parseInt(slider.value, 10)];
+    var y = mk.slice(0, 4), m = parseInt(mk.slice(5, 7), 10);
+    label.textContent = MONTH_TH[m] + ' ' + y;
+    return;
+  }
+  var m2 = parseInt(slider.value, 10);
+  label.textContent = MONTH_TH[m2] + ' (รวมทุกปี 2021-2025 — ดูฤดูกาลพีค)';
+}
+
+function wireTimeControls() {
+  var slider = document.getElementById('time-slider');
+  document.querySelectorAll('input[name="time-mode"]').forEach(function (radio) {
+    radio.addEventListener('change', function (e) {
+      if (!e.target.checked) return;
+      timeMode = e.target.value;
+      if (timeMode === 'all') {
+        slider.style.display = 'none';
+      } else if (timeMode === 'month') {
+        slider.style.display = '';
+        slider.min = 0; slider.max = MONTHS.length - 1; slider.value = MONTHS.length - 1;
+      } else {
+        slider.style.display = '';
+        slider.min = 1; slider.max = 12; slider.value = 3; // default March — one of the known peak months
+      }
+      updateTimeLabel();
+      updateHeatmap();
+    });
+  });
+  slider.addEventListener('input', function () { updateTimeLabel(); updateHeatmap(); });
+}
+
+// ---------------------------------------------------------------------------
+// Land-use risk layer + known-attractor POIs (OSM Overpass, ODbL)
+// ---------------------------------------------------------------------------
+
+function buildLanduseLayer() {
+  LANDUSE.forEach(function (row) {
+    var st = LANDUSE_STYLE[row.kind];
+    if (!st) return;
+    L.circle([row.lat, row.lon], {
+      radius: st.radius, color: st.color, weight: 1, fillColor: st.fillColor, fillOpacity: st.fillOpacity
+    }).bindPopup(
+      '<b>' + (row.name || '(ไม่ระบุชื่อ)') + '</b><br>' + LANDUSE_LABEL[row.kind] +
+      '<br>ใกล้ ' + row.icaoNear + ' (~' + row.distKm + ' กม.)' +
+      '<br><span style="font-size:11px;color:#888">ที่มา: OpenStreetMap — จุดศูนย์กลางโดยประมาณ ไม่ใช่ขอบเขตจริง</span>'
+    ).addTo(landuseLayerGroup);
+  });
+}
+
+function buildAttractorLayer() {
+  ATTRACTORS.forEach(function (row) {
+    var st = LANDUSE_STYLE[row.kind] || LANDUSE_STYLE.wetland;
+    L.circleMarker([row.lat, row.lon], {
+      radius: 9, color: '#ffd166', weight: 2, fillColor: st.fillColor, fillOpacity: 0.9
+    }).bindTooltip('⚠️ ' + row.name, { permanent: false })
+      .bindPopup(
+        '<b>⚠️ ' + row.name + '</b><br>' + LANDUSE_LABEL[row.kind] +
+        '<br>ใกล้สนามบิน ' + row.icaoNear + ' (~' + row.distKm + ' กม.) ซึ่งมีสถิตินกชนสูงในชุดข้อมูลนี้' +
+        '<br><span style="font-size:11px;color:#888">แหล่งดึงดูดสัตว์ป่าที่อาจเกี่ยวข้อง — ข้อมูล OpenStreetMap, ยังไม่ได้ตรวจสอบภาคสนาม</span>'
+      ).addTo(attractorLayerGroup);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +298,20 @@ function updateHeatmap() {
 // ---------------------------------------------------------------------------
 
 var currentAirport = null;
+
+function updateStatCard(icao) {
+  var el = document.getElementById('airport-stat-card');
+  var s = AIRPORT_STATS[icao];
+  if (!s) {
+    el.innerHTML = '<div class="stat-empty">ไม่มีเหตุการณ์บันทึกในชุดข้อมูลนี้ (2021-2025)</div>';
+    return;
+  }
+  el.innerHTML =
+    '<div class="stat-row"><span class="stat-label">รวมเหตุการณ์</span><span class="stat-value">' + s.total + '</span></div>' +
+    '<div class="stat-row"><span class="stat-label">ช่วงบินที่พบบ่อยสุด</span><span class="stat-value">' + s.topPhase + ' (' + s.topPhaseCount + ')</span></div>' +
+    '<div class="stat-row"><span class="stat-label">เดือนพีค</span><span class="stat-value">' + s.peakMonth + ' (' + s.peakMonthCount + ')</span></div>' +
+    '<div class="stat-row"><span class="stat-label">มีความเสียหาย</span><span class="stat-value">' + s.damageCount + ' (' + s.damageRate + '%)</span></div>';
+}
 
 function selectAirport(ap) {
   currentAirport = ap;
@@ -178,6 +321,7 @@ function selectAirport(ap) {
     el.classList.toggle('active', el.dataset.icao === ap.icao);
   });
   document.getElementById('current-airport-label').textContent = ap.icao + ' — ' + ap.nameTh + ' / ' + ap.nameEn;
+  updateStatCard(ap.icao);
 }
 
 function buildAirportList() {
@@ -187,7 +331,9 @@ function buildAirportList() {
     var el = document.createElement('div');
     el.className = 'airport-item';
     el.dataset.icao = ap.icao;
+    var n = AIRPORT_STATS[ap.icao] ? AIRPORT_STATS[ap.icao].total : 0;
     el.innerHTML = '<span class="icao">' + ap.icao + '</span><span class="name">' + ap.nameTh + '</span>' +
+      (n ? '<span class="incident-count">' + n + '</span>' : '') +
       (ap.bearingVerified ? '' : ' <span class="unverified" title="แนวรันเวย์ยังไม่ยืนยัน">⚠️</span>');
     el.addEventListener('click', function () { selectAirport(ap); });
     list.appendChild(el);
@@ -204,6 +350,16 @@ function wireLayerToggles() {
   document.getElementById('toggle-heat').addEventListener('change', function (e) {
     layerVisibility.heat = e.target.checked;
     updateHeatmap();
+  });
+  document.getElementById('toggle-weighted').addEventListener('change', function (e) {
+    weightedHeat = e.target.checked;
+    updateHeatmap();
+  });
+  document.getElementById('toggle-landuse').addEventListener('change', function (e) {
+    if (e.target.checked) landuseLayerGroup.addTo(map); else map.removeLayer(landuseLayerGroup);
+  });
+  document.getElementById('toggle-attractors').addEventListener('change', function (e) {
+    if (e.target.checked) attractorLayerGroup.addTo(map); else map.removeLayer(attractorLayerGroup);
   });
 }
 
@@ -231,7 +387,11 @@ function wireSearch() {
 buildAirportList();
 wireLayerToggles();
 wireZoneModelSwitch();
+wireTimeControls();
 wireSearch();
+buildLanduseLayer();
+buildAttractorLayer();
+attractorLayerGroup.addTo(map); // on by default (only 6 markers); landuse layer stays off until toggled
 applyZoneLabels();
 updateHeatmap();
 selectAirport(AIRPORTS.find(function (a) { return a.icao === 'VTBS'; }) || AIRPORTS[0]);
