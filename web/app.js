@@ -109,7 +109,6 @@ var heatLayer = null;
 var layerVisibility = { phz: true, shz: true, thz: true, lhz: true, heat: true };
 var zoneModel = 'bowtie'; // 'bowtie' (India, runway-oriented) | 'rings' (Australia NASF, ARP-centered)
 var weightedHeat = false; // false = raw incident count, true = weighted (damage x8)
-var timeMode = 'all';     // 'all' | 'month' | 'seasonal'
 
 var MONTHS = Object.keys(HEATMAP_BY_MONTH).sort(); // "2021-01".."2025-12", 60 entries
 
@@ -184,33 +183,35 @@ function applyZoneLabels() {
 }
 
 // ---------------------------------------------------------------------------
-// Heatmap — time-sliced (all-time / specific month / seasonal-summed) and
+// Heatmap — time-ranged (from month/year to month/year, inclusive) and
 // optionally weighted by DamageStatus instead of raw incident count.
+// A single contiguous range replaces the earlier "month slider vs seasonal
+// mode" split — a range is more useful (narrow it to see a specific window,
+// widen it to get enough density to actually see anything) and a single point
+// -in-time month was too sparse to read on the map (per user feedback).
 // ---------------------------------------------------------------------------
 
-function seasonalGrid(mm) {
+function rangeGrid(fromIdx, toIdx) {
+  if (fromIdx === 0 && toIdx === MONTHS.length - 1) return HEATMAP_DENSITY;
   var acc = {};
-  MONTHS.forEach(function (mk) {
-    if (mk.slice(5, 7) !== mm) return;
-    HEATMAP_BY_MONTH[mk].forEach(function (r) {
+  for (var i = fromIdx; i <= toIdx; i++) {
+    HEATMAP_BY_MONTH[MONTHS[i]].forEach(function (r) {
       var key = r[0] + ',' + r[1];
       if (!acc[key]) acc[key] = [r[0], r[1], 0, 0];
       acc[key][2] += r[2];
       acc[key][3] += r[3];
     });
-  });
+  }
   return Object.keys(acc).map(function (k) { return acc[k]; });
 }
 
 function currentGrid() {
-  var slider = document.getElementById('time-slider');
-  if (timeMode === 'all') return HEATMAP_DENSITY;
-  if (timeMode === 'month') {
-    var mk = MONTHS[parseInt(slider.value, 10)];
-    return HEATMAP_BY_MONTH[mk] || [];
-  }
-  var mm = ('0' + parseInt(slider.value, 10)).slice(-2);
-  return seasonalGrid(mm);
+  var fromSel = document.getElementById('time-from');
+  var toSel = document.getElementById('time-to');
+  var fromIdx = parseInt(fromSel.value, 10);
+  var toIdx = parseInt(toSel.value, 10);
+  if (fromIdx > toIdx) { var t = fromIdx; fromIdx = toIdx; toIdx = t; }
+  return rangeGrid(fromIdx, toIdx);
 }
 
 function computeMax(grid, idx) {
@@ -229,40 +230,36 @@ function updateHeatmap() {
   heatLayer = L.heatLayer(points, { radius: 18, blur: 22, maxZoom: 14, max: maxVal }).addTo(map);
 }
 
+function monthOptionLabel(mk) {
+  var y = mk.slice(0, 4), m = parseInt(mk.slice(5, 7), 10);
+  return MONTH_TH[m] + ' ' + y;
+}
+
 function updateTimeLabel() {
-  var slider = document.getElementById('time-slider');
-  var label = document.getElementById('time-slider-label');
-  if (timeMode === 'all') { label.textContent = 'ทั้งหมด (2021-2025)'; return; }
-  if (timeMode === 'month') {
-    var mk = MONTHS[parseInt(slider.value, 10)];
-    var y = mk.slice(0, 4), m = parseInt(mk.slice(5, 7), 10);
-    label.textContent = MONTH_TH[m] + ' ' + y;
-    return;
-  }
-  var m2 = parseInt(slider.value, 10);
-  label.textContent = MONTH_TH[m2] + ' (รวมทุกปี 2021-2025 — ดูฤดูกาลพีค)';
+  var fromSel = document.getElementById('time-from');
+  var toSel = document.getElementById('time-to');
+  var label = document.getElementById('time-range-label');
+  var fromIdx = parseInt(fromSel.value, 10);
+  var toIdx = parseInt(toSel.value, 10);
+  if (fromIdx > toIdx) { var t = fromIdx; fromIdx = toIdx; toIdx = t; }
+  var n = toIdx - fromIdx + 1;
+  label.textContent = monthOptionLabel(MONTHS[fromIdx]) + ' – ' + monthOptionLabel(MONTHS[toIdx]) + ' (' + n + ' เดือน)';
 }
 
 function wireTimeControls() {
-  var slider = document.getElementById('time-slider');
-  document.querySelectorAll('input[name="time-mode"]').forEach(function (radio) {
-    radio.addEventListener('change', function (e) {
-      if (!e.target.checked) return;
-      timeMode = e.target.value;
-      if (timeMode === 'all') {
-        slider.style.display = 'none';
-      } else if (timeMode === 'month') {
-        slider.style.display = '';
-        slider.min = 0; slider.max = MONTHS.length - 1; slider.value = MONTHS.length - 1;
-      } else {
-        slider.style.display = '';
-        slider.min = 1; slider.max = 12; slider.value = 3; // default March — one of the known peak months
-      }
-      updateTimeLabel();
-      updateHeatmap();
-    });
+  var fromSel = document.getElementById('time-from');
+  var toSel = document.getElementById('time-to');
+  MONTHS.forEach(function (mk, i) {
+    var label = monthOptionLabel(mk);
+    fromSel.appendChild(new Option(label, i));
+    toSel.appendChild(new Option(label, i));
   });
-  slider.addEventListener('input', function () { updateTimeLabel(); updateHeatmap(); });
+  fromSel.value = 0;
+  toSel.value = MONTHS.length - 1;
+  [fromSel, toSel].forEach(function (sel) {
+    sel.addEventListener('change', function () { updateTimeLabel(); updateHeatmap(); });
+  });
+  updateTimeLabel();
 }
 
 // ---------------------------------------------------------------------------

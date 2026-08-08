@@ -26,8 +26,10 @@
   .disclaimer { font-size: 10.5px; color: #ff8a8a; line-height: 1.5; margin-top: 10px; }
   .note { font-size: 10.5px; color: #8a93a3; line-height: 1.5; margin-top: 8px; }
   .incident-count { margin-left: auto; font-size: 10.5px; font-weight: bold; color: #ffd166; flex-shrink: 0; padding-left: 6px; }
-  #time-slider { width: 100%; margin-top: 6px; }
-  #time-slider-label { font-size: 11.5px; color: #ffd166; margin-top: 2px; }
+  .time-range-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+  .time-range-row span { flex-shrink: 0; color: #cfd6e0; width: 30px; }
+  .time-range-row select { flex: 1; background: #1c2230; color: #e8ebf0; border: 1px solid #333d4d; border-radius: 4px; padding: 5px 6px; font-size: 12px; }
+  #time-range-label { color: #ffd166; margin-top: 2px; }
   .stat-card { margin-top: 6px; background: #1c2230; border: 1px solid #262c39; border-radius: 4px; padding: 8px 10px; }
   .stat-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 2px 0; }
   .stat-label { color: #8a93a3; }
@@ -69,12 +71,16 @@
 
     <div class="note" id="zone-model-note"></div>
 
-    <div class="section-title">ช่วงเวลา (Time)</div>
-    <label class="toggle-row"><input type="radio" name="time-mode" value="all" checked> ทั้งหมด (2021-2025)</label>
-    <label class="toggle-row"><input type="radio" name="time-mode" value="month"> รายเดือน (เลื่อนดูทีละเดือน)</label>
-    <label class="toggle-row"><input type="radio" name="time-mode" value="seasonal"> ฤดูกาล (รวมทุกปีต่อเดือน)</label>
-    <input type="range" id="time-slider" min="0" max="59" value="0" style="display:none">
-    <div id="time-slider-label"></div>
+    <div class="section-title">ช่วงเวลา (Time Range)</div>
+    <div class="time-range-row">
+      <span>จาก</span>
+      <select id="time-from"></select>
+    </div>
+    <div class="time-range-row">
+      <span>ถึง</span>
+      <select id="time-to"></select>
+    </div>
+    <div id="time-range-label" class="note"></div>
 
     <div class="section-title">ความเสี่ยงจากการใช้ที่ดิน</div>
     <label class="toggle-row"><input type="checkbox" id="toggle-landuse">
@@ -94,7 +100,7 @@
 
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet.heat.js"></script>
-<script src="data.js?v=20260809b"></script>
-<script src="app.js?v=20260809b"></script>
+<script src="data.js?v=20260809c"></script>
+<script src="app.js?v=20260809c"></script>
 </body>
 </html>
