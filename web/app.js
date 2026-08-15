@@ -270,12 +270,17 @@ function buildLanduseLayer() {
   LANDUSE.forEach(function (row) {
     var st = LANDUSE_STYLE[row.kind];
     if (!st) return;
-    L.circle([row.lat, row.lon], {
-      radius: st.radius, color: st.color, weight: 1, fillColor: st.fillColor, fillOpacity: st.fillOpacity
-    }).bindPopup(
+    var hasPoly = row.poly && row.poly.length;
+    var shape = hasPoly
+      ? L.polygon(row.poly, { color: st.color, weight: 1.5, fillColor: st.fillColor, fillOpacity: st.fillOpacity })
+      : L.circle([row.lat, row.lon], { radius: st.radius, color: st.color, weight: 1, fillColor: st.fillColor, fillOpacity: st.fillOpacity });
+    var sourceNote = hasPoly
+      ? 'ที่มา: OpenStreetMap — ขอบเขตจริงของพื้นที่ (ทำให้เรียบด้วย RDP simplification)'
+      : 'ที่มา: OpenStreetMap — จุดศูนย์กลางโดยประมาณ ไม่ใช่ขอบเขตจริง';
+    shape.bindPopup(
       '<b>' + (row.name || '(ไม่ระบุชื่อ)') + '</b><br>' + LANDUSE_LABEL[row.kind] +
       '<br>ใกล้ ' + row.icaoNear + ' (~' + row.distKm + ' กม.)' +
-      '<br><span style="font-size:11px;color:#888">ที่มา: OpenStreetMap — จุดศูนย์กลางโดยประมาณ ไม่ใช่ขอบเขตจริง</span>'
+      '<br><span style="font-size:11px;color:#888">' + sourceNote + '</span>'
     ).addTo(landuseLayerGroup);
   });
 }
